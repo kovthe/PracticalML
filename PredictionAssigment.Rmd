@@ -1,0 +1,118 @@
+---
+title: "Prediction Assignment"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Project Synopsis
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+The goal of the project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. 
+
+Download the training and test datasets:
+
+```{r get-data,cache=TRUE}
+trainingDataUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testDataUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+download.file(trainingDataUrl,destfile = "trainingData.csv",method = "auto",quiet = TRUE) 
+download.file(trainingDataUrl,destfile = "testData.csv",method = "auto",quiet = TRUE) 
+```
+
+
+Read the csv format training and test data into dataframe
+```{r read-data,cache=TRUE}
+trainData <- read.csv(file="trainingData.csv", header=TRUE, sep=",",na.strings=c("NA","#DIV/0!",""))
+testData  <- read.csv(file="testData.csv", header=TRUE, sep=",",na.strings=c("NA","#DIV/0!",""))
+```
+
+Summary of training dataset:
+```{r train-data-summary, echo=FALSE}
+dim(trainData)
+```
+
+The training dataset has 160 variables and 19622 observations.
+
+Lets view the top and bottom rows of training dataset
+```{r list-data}
+head(trainData)
+tail(trainData)
+
+```
+
+From the data its evident that there are several variables with many NA values and also some of them
+Summary of test dataset:
+```{r test-data-summary, echo=FALSE}
+dim(testData)
+```
+
+
+We will do some data cleaning and remove less useful variables,
+
+```{r data-cleaning}
+#Drop columns having all NA values
+trainData<-trainData[,colSums(is.na(trainData)) == 0]
+testData<-testData[,colSums(is.na(testData)) == 0]
+dim(trainData)
+head(trainData)
+tail(trainData)
+
+#Now out of these remaining 60 variables, the columns 1 to 7 are not necessary, and can be dropped to reduce the variables
+trainData <- trainData[-c(1:7)]
+trainData <- trainData[-c(1:7)]
+dim(trainData)
+head(trainData)
+tail(trainData)
+```
+
+Now using caret package we will split training data into training and test data to identify and train the model. Later the best model will be tested on the given test data.
+
+```{r data-partition, message=FALSE, warning=FALSE}
+library(caret)
+set.seed(2017)
+train <- createDataPartition(y=trainData$classe,p=.80,list = FALSE)
+training <- trainData[train,]
+testing <- trainData[-train,]
+```
+
+
+
+Now we will try several models, and identify the best one,
+
+###Model 1 using Decision Tree
+
+```{r model01}
+library(rpart)
+model01 <- rpart(classe ~ ., data=training, method="class")
+predict01 <- predict(model01, testing, type = "class")
+```
+
+Testing using Confusion Matrix
+```{r model01-test}
+confusionMatrix(predict01, testing$classe)
+```
+
+###Model 2 using Random Forest
+```{r second-model,message=FALSE,warning=FALSE}
+library(randomForest)
+model02 <- randomForest(classe ~. , data=training, method="class")
+predict02 <- predict(model02, testing, type = "class")
+```
+
+Now we will compute the confusion matrix for this second model and evaluate it againts the on from model01
+```{r test-model02}
+confusionMatrix(predict02,testing$classe)
+```
+
+Its apparantely clear that randowm forest method gives a higher accuracy, and we will use random forest againts the test datasets,
+
+```{r finalmodel}
+prediction <- predict(model02,testData,type="class")
+head(prediction)
+tail(prediction)
+confusionMatrix(prediction,testData$classe)
+
+```
